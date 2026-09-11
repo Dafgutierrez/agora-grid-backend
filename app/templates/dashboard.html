@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Agora Grid — Approvals</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,sans-serif;background:#0b0f12;color:#e6f1f3;margin:0;padding:24px;}
+  h1{font-size:1.3rem;margin-bottom:4px;}
+  p.sub{color:#7f9aa3;margin-top:0;font-size:0.85rem;}
+  table{width:100%;border-collapse:collapse;margin-top:18px;}
+  th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #1c262a;vertical-align:top;font-size:0.85rem;}
+  th{color:#7f9aa3;font-weight:600;text-transform:uppercase;font-size:0.7rem;letter-spacing:0.05em;}
+  .amt{font-variant-numeric:tabular-nums;color:#ffb066;}
+  .status{padding:2px 8px;border-radius:3px;font-size:0.72rem;text-transform:uppercase;}
+  .status.pending{background:#2a2308;color:#ffcf5c;}
+  .status.awaiting_payment{background:#0f2733;color:#5cc9ff;}
+  .status.paid{background:#0f3322;color:#5cffa0;}
+  .status.rejected{background:#331414;color:#ff7a7a;}
+  .transcript{max-width:340px;white-space:pre-wrap;color:#a9c2c9;font-family:ui-monospace,monospace;font-size:0.75rem;}
+  form{display:inline;}
+  button{cursor:pointer;border:none;border-radius:3px;padding:6px 12px;font-size:0.78rem;margin-right:6px;}
+  button.approve{background:#1c5c3a;color:#c9ffdf;}
+  button.reject{background:#5c1c1c;color:#ffd6d6;}
+  a.pay-link{color:#5cc9ff;}
+</style>
+</head>
+<body>
+  <h1>Agora Grid — Pending Approvals</h1>
+  <p class="sub">Every row here needs your decision before any payment link exists. Nothing is charged until a buyer completes checkout.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>When</th><th>Agent</th><th>Buyer</th><th>Service</th>
+        <th>Description &amp; interaction log</th><th>Amount</th><th>Status</th><th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in proposals %}
+      <tr>
+        <td>{{ p.created_at[:19].replace('T', ' ') }}</td>
+        <td>{{ p.agent_name }}</td>
+        <td>{{ p.buyer_name }}</td>
+        <td>{{ service_label(p.service) }}</td>
+        <td>
+          <div>{{ p.description }}</div>
+          {% if p.transcript %}
+          <div class="transcript">{{ p.transcript }}</div>
+          {% endif %}
+        </td>
+        <td class="amt">${{ "%.2f"|format(p.amount_usd) }}</td>
+        <td><span class="status {{ p.status }}">{{ p.status }}</span></td>
+        <td>
+          {% if p.status == 'pending' %}
+          <form method="post" action="/dashboard/proposals/{{ p.id }}/approve">
+            <input type="hidden" name="token" value="{{ token }}">
+            <button class="approve" type="submit">Approve</button>
+          </form>
+          <form method="post" action="/dashboard/proposals/{{ p.id }}/reject">
+            <input type="hidden" name="token" value="{{ token }}">
+            <button class="reject" type="submit">Reject</button>
+          </form>
+          {% elif p.status == 'awaiting_payment' and p.checkout_url %}
+          <a class="pay-link" href="{{ p.checkout_url }}" target="_blank" rel="noopener">payment link</a>
+          {% else %}
+          &mdash;
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>
