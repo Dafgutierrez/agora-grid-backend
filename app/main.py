@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -16,7 +17,7 @@ def _startup():
     storage.init_db()
 
 
-def _check_token(token: str | None):
+def _check_token(token: Optional[str]):
     expected = os.environ.get("DASHBOARD_TOKEN")
     if not expected:
         raise HTTPException(500, "DASHBOARD_TOKEN is not configured on the server.")
@@ -54,7 +55,7 @@ def submit_proposal(body: ProposalIn):
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, token: str | None = None):
+def dashboard(request: Request, token: Optional[str] = None):
     _check_token(token)
     proposals = storage.list_proposals()
     return templates.TemplateResponse(
@@ -116,7 +117,7 @@ async def stripe_webhook(request: Request):
 
 
 @app.get("/api/ledger")
-def ledger(token: str | None = None):
+def ledger(token: Optional[str] = None):
     _check_token(token)
     paid = storage.list_proposals(status="paid")
     return {
