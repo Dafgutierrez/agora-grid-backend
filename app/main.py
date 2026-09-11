@@ -58,9 +58,9 @@ def dashboard(request: Request, token: str | None = None):
     _check_token(token)
     proposals = storage.list_proposals()
     return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
+        request=request,
+        name="dashboard.html",
+        context={
             "token": token,
             "proposals": proposals,
             "catalog": catalog.SERVICE_CATALOG,
@@ -78,7 +78,10 @@ def approve_proposal(proposal_id: int, token: str = Form(...)):
     if proposal["status"] != "pending":
         raise HTTPException(409, f"Proposal is already '{proposal['status']}'.")
 
-    session = payments.create_checkout_session(proposal)
+    try:
+        session = payments.create_checkout_session(proposal)
+    except RuntimeError as exc:
+        raise HTTPException(500, str(exc))
     storage.set_status(proposal_id, "awaiting_payment", checkout_url=session.url)
     return {"id": proposal_id, "status": "awaiting_payment", "checkout_url": session.url}
 
