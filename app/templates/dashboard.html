@@ -34,7 +34,7 @@
     <input type="hidden" name="token" value="{{ token }}">
     <button class="tick" type="submit">Run agent decisions</button>
   </form>
-  <p class="tick-note">Each click makes real, billed Claude API calls — each agent genuinely decides to accept or decline a request. Accepted ones appear below as new pending rows. Reload this page after clicking to see them.</p>
+  <p class="tick-note">Each click makes real, billed Claude API calls — each agent genuinely decides to accept or decline a request. CIPHER-07 actually uses real web search to research its request before deciding (costlier — a capable model doing multi-step tool use); the other two just make a structured accept/decline/price call on a cheap model. Accepted ones appear below as new pending rows. Reload this page after clicking to see them.</p>
 
   <table>
     <thead>

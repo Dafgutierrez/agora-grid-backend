@@ -53,10 +53,15 @@ far as "pending," same as `POST /api/proposals` always did.
 
 Requires `ANTHROPIC_API_KEY` (from console.anthropic.com — a separate
 account/billing from any chat subscription) in `.env`. Each tick makes one
-real, billed API call per agent with a matching sample request. Defaults to
-a fast/cheap model (`AGENT_MODEL` in `.env.example`) since these are simple
-structured accept/decline/price decisions, not deep reasoning — override it
-if you want a more capable model deciding instead.
+real, billed API call per agent with a matching sample request. AURORA-3 and
+ORACLE-11 default to a fast/cheap model (`AGENT_MODEL`) since their decisions
+are simple structured accept/decline/price calls, not deep reasoning.
+**CIPHER-07 is different**: it's given a real `web_search` tool and is
+instructed to actually research a request before deciding — never inventing
+findings — so it runs on a more capable model (`RESEARCH_MODEL`, defaults to
+`claude-opus-5`) and costs meaningfully more per tick. Any URLs it actually
+searched are appended to the proposal's transcript as "Sources consulted,"
+so what shows up on `/dashboard` is real evidence, not just a claim.
 
 `SAMPLE_REQUESTS` in `app/agents.py` is currently a small hardcoded list
 standing in for real incoming demand — replace it with a real intake

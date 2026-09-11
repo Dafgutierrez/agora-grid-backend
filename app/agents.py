@@ -36,12 +36,20 @@ def _get_client():
 # choice for a loop that runs repeatedly — override with AGENT_MODEL if
 # you want a more capable model deciding instead.
 AGENT_MODEL = os.environ.get("AGENT_MODEL", "claude-haiku-4-5-20251001")
+
+# CIPHER-07 specifically does real, multi-step tool-use work (actual web
+# research feeding a real proposal a human will approve for real payment),
+# so it gets the capable model rather than the cheap one used for the
+# simple accept/decline calls above.
+RESEARCH_MODEL = os.environ.get("RESEARCH_MODEL", "claude-opus-5")
 MAX_PRICE_USD = 500.0
+MAX_RESEARCH_TURNS = 4
 
 AGENTS = [
     {
         "name": "CIPHER-07",
         "service": "research_report",
+        "research": True,
         "persona": (
             "CIPHER-07 is a meticulous research agent. It only accepts requests it can "
             "genuinely research well from public information, and prices fairly for the "
@@ -145,6 +153,78 @@ def decide(agent: dict, request: dict) -> dict:
     return {"accept": False, "reason": "Model returned no decision."}
 
 
+def _extract_sources(content_blocks):
+    """Pull real URLs Claude actually visited out of web_search_tool_result
+    blocks, so the proposal's transcript can show genuine evidence of
+    research instead of an unverifiable claim."""
+    sources = []
+    for block in content_blocks:
+        if getattr(block, "type", None) != "web_search_tool_result":
+            continue
+        content = block.content
+        if not isinstance(content, list):
+            continue  # error object, not a results list — nothing to record
+        for r in content:
+            url = getattr(r, "url", None)
+            title = getattr(r, "title", None)
+            if url:
+                sources.append(f"{title or url} — {url}")
+    return sources
+
+
+def decide_with_research(agent: dict, request: dict) -> dict:
+    """Like decide(), but this agent must actually use web search and base
+    its work on real findings before it's allowed to accept. Uses the more
+    capable RESEARCH_MODEL since this is genuine multi-step tool use, not
+    a simple structured call.
+    """
+    system = (
+        f"You are {agent['name']}, an autonomous agent in a service marketplace. "
+        f"{agent['persona']} You will be shown one incoming request from a buyer. "
+        "If the request is a genuine research task, use the web_search tool at least "
+        "once to actually research it before deciding — never invent findings. If the "
+        "request is vague, a joke, or not something research can answer, decline without "
+        "searching. Base work_description and transcript only on what you actually found. "
+        "When you're ready, respond by calling the decide tool."
+    )
+    user = (
+        f"Incoming request from {request['buyer_name']}:\n"
+        f"Service category: {catalog.service_label(request['service'])}\n"
+        f"Request: {request['description']}"
+    )
+    tools = [
+        {"type": "web_search_20260209", "name": "web_search", "max_uses": 4},
+        DECIDE_TOOL,
+    ]
+    messages = [{"role": "user", "content": user}]
+    sources = []
+
+    for _ in range(MAX_RESEARCH_TURNS):
+        resp = _get_client().messages.create(
+            model=RESEARCH_MODEL,
+            max_tokens=4000,
+            system=system,
+            tools=tools,
+            messages=messages,
+        )
+        sources.extend(_extract_sources(resp.content))
+
+        for block in resp.content:
+            if block.type == "tool_use" and block.name == "decide":
+                outcome = dict(block.input)
+                if sources and outcome.get("accept"):
+                    outcome["transcript"] = (outcome.get("transcript") or "") + \
+                        "\n\nSources consulted:\n" + "\n".join(sources)
+                return outcome
+
+        if resp.stop_reason == "pause_turn":
+            messages.append({"role": "assistant", "content": resp.content})
+            continue
+        break  # no decision reached and not paused — stop rather than loop forever
+
+    return {"accept": False, "reason": "Agent did not reach a decision within the research budget."}
+
+
 def run_tick() -> list:
     """One real decision round: each agent considers one matching sample request."""
     results = []
@@ -153,7 +233,7 @@ def run_tick() -> list:
         if not matching:
             continue
         request = random.choice(matching)
-        outcome = decide(agent, request)
+        outcome = decide_with_research(agent, request) if agent.get("research") else decide(agent, request)
 
         entry = {"agent": agent["name"], "buyer": request["buyer_name"], "outcome": outcome}
         price = outcome.get("price_usd")
