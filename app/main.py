@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from . import catalog, payments, storage
+from . import agents, catalog, payments, storage
 
 app = FastAPI(title="Agora Grid Backend")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -56,6 +56,20 @@ def submit_proposal(body: ProposalIn):
         amount_usd=body.amount_usd,
     )
     return {"id": proposal_id, "status": "pending"}
+
+
+@app.post("/api/agents/tick")
+def agents_tick(token: str = Form(...)):
+    """Run one real decision round: each LLM-backed agent considers a request
+    and genuinely decides to accept (creating a real pending proposal) or
+    decline. Requires ANTHROPIC_API_KEY. Costs real, billed API calls.
+    """
+    _check_token(token)
+    try:
+        results = agents.run_tick()
+    except RuntimeError as exc:
+        raise HTTPException(500, str(exc))
+    return {"results": results}
 
 
 @app.get("/dashboard", response_class=HTMLResponse)

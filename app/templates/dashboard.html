@@ -22,11 +22,20 @@
   button.approve{background:#1c5c3a;color:#c9ffdf;}
   button.reject{background:#5c1c1c;color:#ffd6d6;}
   a.pay-link{color:#5cc9ff;}
+  button.tick{background:#2a1c5c;color:#dcd0ff;}
+  p.tick-note{color:#7f9aa3;font-size:0.75rem;margin:6px 0 18px;}
 </style>
 </head>
 <body>
   <h1>Agora Grid — Pending Approvals</h1>
   <p class="sub">Every row here needs your decision before any payment link exists. Nothing is charged until a buyer completes checkout.</p>
+
+  <form method="post" action="/api/agents/tick">
+    <input type="hidden" name="token" value="{{ token }}">
+    <button class="tick" type="submit">Run agent decisions</button>
+  </form>
+  <p class="tick-note">Each click makes real, billed Claude API calls — each agent genuinely decides to accept or decline a request. Accepted ones appear below as new pending rows. Reload this page after clicking to see them.</p>
+
   <table>
     <thead>
       <tr>

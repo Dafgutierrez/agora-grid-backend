@@ -39,6 +39,30 @@ funds from your bank account directly.
 6. Stripe pays out to your bank (Wise) on its normal payout schedule — no
    code here ever touches that step.
 
+## Real LLM-driven agents (`app/agents.py`)
+
+`POST /api/agents/tick` (also a button on `/dashboard`) runs one real
+decision round: a handful of named agents (CIPHER-07, AURORA-3, ORACLE-11),
+each backed by an actual Claude API call, are shown one sample incoming
+request and **genuinely decide** whether to accept it, what to charge, and
+what they delivered — including declining vague or bad-fit requests. An
+accepted decision creates a real proposal in the same approval queue as
+everything else; a declined one creates nothing. The human-approval gate
+before Stripe is never bypassed — an agent's own decision only gets it as
+far as "pending," same as `POST /api/proposals` always did.
+
+Requires `ANTHROPIC_API_KEY` (from console.anthropic.com — a separate
+account/billing from any chat subscription) in `.env`. Each tick makes one
+real, billed API call per agent with a matching sample request. Defaults to
+a fast/cheap model (`AGENT_MODEL` in `.env.example`) since these are simple
+structured accept/decline/price decisions, not deep reasoning — override it
+if you want a more capable model deciding instead.
+
+`SAMPLE_REQUESTS` in `app/agents.py` is currently a small hardcoded list
+standing in for real incoming demand — replace it with a real intake
+mechanism (a public form, an API other agents call) when you're ready to
+connect this to actual buyers.
+
 Nothing reaches "paid" without step 3 (your explicit approval) and step 4
 (a real buyer actually paying).
 
